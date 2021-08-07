@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+
+  db:
+    image: postgres:13-alpine
+    container_name: netbox_db
+    volumes:
+      - netbox_postgres:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=netbox
+      - POSTGRES_PASSWORD=netbox
+      - POSTGRES_DB=netbox
+    networks:
+      - netbox
+    expose:
+      - 5432
+    restart: unless-stopped
+
+  netbox:
+    container_name: netbox_netbox
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: netbox/netbox
+    command: sh -c  "python manage.py collectstatic --no-input && "\
+                    "python manage.py migrate && "\
+                    "python manage.py createsuperuser --noinput || true &&"\
+                    "gunicorn netbox.wsgi:application --bind 0.0.0.0:8000"
+
+#    command: sh -c "tail -f /dev/null"
+
+#    command: sh -c  "ln -s -f /home/netbox/configuration.py /home/netbox/netbox/netbox/configuration.py && "\
+
+    env_file:
+      - ./temp/environment.prod
+    volumes:
+#      - ./netbox/netbox/:/home/netbox/netbox/
+      - netbox_volume:/home/netbox/netbox
+    networks:
+      - netbox
+    expose:
+     - 8000
+    depends_on:
+      - db
+    restart: unless-stopped
+
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: netbox_nginx
+    volumes:
+      - netbox_volume:/home/netbox/netbox/
+      - netbox_letsencrypt:/etc/letsencrypt/
+      - netbox_nginx_etc:/etc/nginx/conf.d/
+    networks:
+      - netbox
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      - netbox
+    restart: unless-stopped
+
+
+  redis:
+    container_name: netbox_redis
+    image: redis:alpine
+    expose:
+      - 6379
+    networks:
+      - netbox
+    restart: unless-stopped
+
+volumes:
+  netbox_volume:
+  netbox_postgres:
+  netbox_letsencrypt:
+  netbox_nginx_etc:
+
+networks:
+  netbox:

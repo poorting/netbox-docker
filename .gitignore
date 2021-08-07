@@ -1,0 +1,10 @@
+environment.prod
+*.crt
+*.key
+*.DS_Store
+*.ipynb_checkpoints
+*.pyc
+.idea/
+.venv
+venv
+temp/
