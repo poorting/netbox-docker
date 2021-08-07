@@ -5,18 +5,18 @@ RED='\033[1;31m'
 NC='\033[0m' # No Color
 
 printf "${COL}%s\n ${NC}"  " " \
-  "This will set up the local ddosdb for production use by getting a let's encrypt certificate for the domain you specify " \
+  "This will set up the local netbox for production use by getting a let's encrypt certificate for the domain you specify " \
   "Let's Encrypt does a check at that domain using http, so make sure that port 80 (http) and 443 (https) are reachable " \
   "from the internet and that the domain you specify points to this machine!" \
   " "
 
 while
-  printf "${COL}Fully qualified domain name for this dddosdb:${NC}"
+  printf "${COL}Fully qualified domain name for this netbox:${NC}"
   read fqdn
   [ -z "$fqdn" ]
 do :; done
 
-export DDOSDB_FQDN=$fqdn
+export NGINX_FQDN=$fqdn
 
 
 printf "${COL}%s\n ${NC}"  " " \
@@ -57,14 +57,14 @@ printf "${COL}\n Instructing certbot to get a new (${NC}$CERT${COL}) certificate
 if [ -z "$le_email" ]
 then
 #  printf "no mail\n"
-  docker exec ddosdb_nginx \
+  docker exec netbox_nginx \
     certbot certonly --test-cert --webroot -w /etc/letsencrypt/www/ -n --agree-tos \
-    --no-eff-email --register-unsafely-without-email --keep --reuse-key --rsa-key-size 4096 -d $NGINX_FQDN
+    --no-eff-email --register-unsafely-without-email --keep --rsa-key-size 4096 -d $NGINX_FQDN
 else
 #  printf "mail $le_email \n"
-  docker exec ddosdb_nginx \
+  docker exec netbox_nginx \
     certbot certonly $testcert --webroot -w /etc/letsencrypt/www/ -n --agree-tos \
-    --email $le_email --no-eff-email --force-renewal --reuse-key --rsa-key-size 4096 -d $NGINX_FQDN
+    --email $le_email --no-eff-email --force-renewal --rsa-key-size 4096 -d $NGINX_FQDN
 fi
 
 if [ $? -ne 0 ]
@@ -83,11 +83,11 @@ envsubst \$NGINX_FQDN <nginx/nginx-conf.template >temp/$NGINX_FQDN.conf
 printf "${COL}\n Copying to nginx container and verifying \n\n${NC}"
 
 # Copy the conf file into the container
-docker cp temp/$NGINX_FQDN.conf ddosdb_nginx:/etc/nginx/conf.d/.
+docker cp temp/$NGINX_FQDN.conf netbox_nginx:/etc/nginx/conf.d/.
 
 if [ $? -ne 0 ]
 then
-  printf " \n\n${RED}Error copying NGINX configuration for $NGINX_FQDN to the ddosdb_nginx container. Aborting!${NC}\n"
+  printf " \n\n${RED}Error copying NGINX configuration for $NGINX_FQDN to the netbox_nginx container. Aborting!${NC}\n"
   exit 2
 #else
 #  printf " Everything went swimmingly\n"
@@ -95,12 +95,12 @@ fi
 
 # Test if configuration is OK.
 # If not: remove the file from the container again
-docker exec ddosdb_nginx nginx -t
+docker exec netbox_nginx nginx -t
 if [ $? -ne 0 ]
 then
   printf " \n\n${RED}Error in the NGINX configuration for $NGINX_FQDN.\n"
   printf " Removing and aborting!${NC}\n"
-  docker exec ddosdb_nginx rm /etc/nginx/conf.d/$NGINX_FQDN.conf
+  docker exec netbox_nginx rm /etc/nginx/conf.d/$NGINX_FQDN.conf
   exit 3
 #else
 #  printf " Everything went swimmingly\n"
@@ -108,9 +108,9 @@ fi
 
 printf "${COL}\n Everything OK. Instructing nginx to reload it's configuration to let the changes take effect\n\n${NC}"
 
-docker exec ddosdb_nginx nginx -s reload
+docker exec netbox_nginx nginx -s reload
 
-printf "${COL}\n All done. You should now be able to reach ddosdb at https://$NGINX_FQDN\n${NC}"
+printf "${COL}\n All done. You should now be able to reach netbox at https://$NGINX_FQDN\n${NC}"
 if [ -z "$le_email" -o -n "$testcert" ]
 then
   printf "${RED}%s\n ${NC}"  " " \
