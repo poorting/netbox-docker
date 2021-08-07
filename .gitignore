@@ -8,3 +8,4 @@ environment.prod
 .venv
 venv
 temp/
+netbox/
